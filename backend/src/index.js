@@ -15,7 +15,17 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3001;
 
-app.use(cors({ origin: 'http://localhost:5173' }));
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow localhost, Vercel deployments, and no-origin requests (curl, Postman)
+    const allowed = !origin ||
+      origin.includes('localhost') ||
+      origin.includes('vercel.app') ||
+      origin.includes('etson');
+    callback(null, allowed ? origin : false);
+  },
+  credentials: true
+}));
 app.use(express.json());
 
 // Set up multer for uploads
@@ -35,6 +45,12 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message || 'Internal Server Error' });
 });
 
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
-});
+// Export for Vercel serverless
+export default app;
+
+// Start server in non-serverless environments
+if (process.env.NODE_ENV !== 'production' || process.env.LOCAL_DEV) {
+  app.listen(port, () => {
+    console.log(`Server running on port ${port}`);
+  });
+}

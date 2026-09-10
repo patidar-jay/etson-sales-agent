@@ -5,8 +5,9 @@
   "main": "src/index.js",
   "type": "module",
   "scripts": {
-    "dev": "node --watch src/index.js",
-    "start": "node src/index.js"
+    "dev": "LOCAL_DEV=true node --watch src/index.js",
+    "start": "LOCAL_DEV=true node src/index.js"
+
   },
   "dependencies": {
     "cors": "^2.8.6",
