@@ -1,13 +1,14 @@
 import React from 'react';
 
 const ScoreDisplay = ({ score, size = 60 }) => {
+  const s = Number(score) || 0;
   const radius = (size - 10) / 2;
   const circumference = radius * 2 * Math.PI;
-  const strokeDashoffset = circumference - (score / 100) * circumference;
+  const strokeDashoffset = circumference - (s / 100) * circumference;
   
   let color = '#ef4444'; // red
-  if (score >= 70) color = '#10b981'; // green
-  else if (score >= 40) color = '#f59e0b'; // yellow
+  if (s >= 70) color = '#10b981'; // green
+  else if (s >= 40) color = '#f59e0b'; // yellow
 
   return (
     <div style={{ position: 'relative', width: size, height: size, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -34,7 +35,7 @@ const ScoreDisplay = ({ score, size = 60 }) => {
         />
       </svg>
       <div style={{ position: 'absolute', fontWeight: 'bold', fontSize: size > 60 ? '1.5rem' : '1rem', color: 'var(--text-main)' }}>
-        {score}
+        {s}
       </div>
     </div>
   );

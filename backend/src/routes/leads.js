@@ -34,7 +34,7 @@ router.get('/stats', async (req, res) => {
     
     const stats = {
       total: leads.length,
-      highPriority: leads.filter(l => l.category === 'High').length,
+      highPriority: leads.filter(l => l.category === 'hot').length,
       new: leads.filter(l => l.status === 'new').length
     };
     

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getLeadById } from '../services/api';
+import { getLeadById, updateLead } from '../services/api';
 import { ArrowLeft, Phone, Mail, MapPin, Play, FileText, CheckCircle, XCircle } from 'lucide-react';
 import Badge from '../components/Badge';
 import ScoreDisplay from '../components/ScoreDisplay';
+import toast from 'react-hot-toast';
 
 const LeadDetail = () => {
   const { id } = useParams();
@@ -25,6 +26,16 @@ const LeadDetail = () => {
       });
   }, [id]);
 
+  const handleUpdateStatus = async (status) => {
+    try {
+      await updateLead(id, { status });
+      toast.success(`Lead marked as ${status}`);
+      setLead({ ...lead, status });
+    } catch (err) {
+      toast.error('Failed to update lead status');
+    }
+  };
+
   const mapCategory = (cat) => {
     if (!cat) return 'nurture';
     const lower = cat.toLowerCase();
@@ -37,6 +48,26 @@ const LeadDetail = () => {
   if (loading) return <div className="p-8 text-center">Loading...</div>;
   if (error) return <div className="p-8 text-center text-red-500">{error}</div>;
   if (!lead) return <div className="p-8 text-center">Lead not found</div>;
+
+  const sentiment = lead.sentiment || 'Neutral';
+  const sentimentVariant = sentiment.toLowerCase() === 'positive' ? 'success' : sentiment.toLowerCase() === 'negative' ? 'hot' : 'warm';
+
+  const formatKey = (key) => key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+  const getPercentage = (key, val) => {
+    const maxValues = {
+      icp_fit: 15,
+      product_fit: 15,
+      volume_revenue: 15,
+      supplier_pain: 15,
+      timeline: 10,
+      decision_authority: 10,
+      commercial_viability: 15,
+      engagement: 5
+    };
+    const maxVal = maxValues[key] || 15;
+    return Math.min(100, Math.round((val / maxVal) * 100));
+  };
 
   return (
     <div className="slide-in">
@@ -53,7 +84,7 @@ const LeadDetail = () => {
               
               <div className="flex gap-4 text-muted mb-4" style={{ fontSize: '0.875rem' }}>
                 <span className="flex items-center gap-1"><Phone size={16} /> {lead.phone}</span>
-                <span className="flex items-center gap-1"><Mail size={16} /> {lead.email}</span>
+                <span className="flex items-center gap-1"><Mail size={16} /> {lead.email || 'No email'}</span>
                 <span className="flex items-center gap-1"><MapPin size={16} /> {lead.city}</span>
               </div>
               <Badge variant={mapCategory(lead.category)}>{mapCategory(lead.category).toUpperCase()} LEAD</Badge>
@@ -61,7 +92,7 @@ const LeadDetail = () => {
             <ScoreDisplay score={lead.priority || lead.score || 0} size={100} />
           </div>
 
-          <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1rem' }}>Product Requirements</h3>
+          <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1rem' }}>Product Requirements & Details</h3>
           <div className="grid gap-4" style={{ gridTemplateColumns: '1fr 1fr', background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '12px' }}>
             <div><span className="text-muted">Product:</span> <div style={{ fontWeight: 500 }}>{lead.product || lead.needs || 'N/A'}</div></div>
             <div><span className="text-muted">Monthly Volume:</span> <div style={{ fontWeight: 500 }}>{lead.volume ? lead.volume.toLocaleString() + ' rolls' : 'N/A'}</div></div>
@@ -69,6 +100,12 @@ const LeadDetail = () => {
             <div><span className="text-muted">Application:</span> <div style={{ fontWeight: 500 }}>{lead.application || 'N/A'}</div></div>
             <div><span className="text-muted">Budget Target:</span> <div style={{ fontWeight: 500 }}>{lead.budget || 'N/A'}</div></div>
             <div><span className="text-muted">Timeline:</span> <div style={{ fontWeight: 500 }}>{lead.timeline || 'N/A'}</div></div>
+            <div><span className="text-muted">Current Supplier:</span> <div style={{ fontWeight: 500 }}>{lead.current_supplier || 'N/A'}</div></div>
+            <div><span className="text-muted">Supplier Pain:</span> <div style={{ fontWeight: 500 }}>{lead.supplier_pain || 'N/A'}</div></div>
+            <div><span className="text-muted">Decision Maker:</span> <div style={{ fontWeight: 500 }}>{lead.decision_maker || 'N/A'}</div></div>
+            <div><span className="text-muted">Width:</span> <div style={{ fontWeight: 500 }}>{lead.width || 'N/A'}</div></div>
+            <div><span className="text-muted">Diameter:</span> <div style={{ fontWeight: 500 }}>{lead.diameter || 'N/A'}</div></div>
+            <div><span className="text-muted">Consent Source:</span> <div style={{ fontWeight: 500 }}>{lead.consent_source || 'N/A'}</div></div>
           </div>
         </div>
 
@@ -77,8 +114,8 @@ const LeadDetail = () => {
             <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem' }}>Actions</h3>
             <div className="flex" style={{ flexDirection: 'column', gap: '0.75rem' }}>
               <button className="btn btn-primary w-full"><FileText size={18} /> Create Quote</button>
-              <button className="btn btn-secondary w-full" style={{ color: 'var(--success)', borderColor: 'var(--success)' }}><CheckCircle size={18} /> Mark Won</button>
-              <button className="btn btn-secondary w-full" style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}><XCircle size={18} /> Mark Lost</button>
+              <button className="btn btn-secondary w-full" style={{ color: 'var(--success)', borderColor: 'var(--success)' }} onClick={() => handleUpdateStatus('won')}><CheckCircle size={18} /> Mark Won</button>
+              <button className="btn btn-secondary w-full" style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }} onClick={() => handleUpdateStatus('lost')}><XCircle size={18} /> Mark Lost</button>
             </div>
           </div>
 
@@ -88,11 +125,11 @@ const LeadDetail = () => {
               <div className="flex items-center gap-2">
                 <button className="btn btn-primary" style={{ padding: '0.5rem', borderRadius: '50%' }}><Play size={16} fill="currentColor" /></button>
                 <div>
-                  <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>04:12</div>
+                  <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>{lead.call_duration || '00:00'}</div>
                   <div className="text-muted" style={{ fontSize: '0.75rem' }}>Duration</div>
                 </div>
               </div>
-              <Badge variant="success">Positive Sentiment</Badge>
+              <Badge variant={sentimentVariant}>{sentiment}</Badge>
             </div>
             
             <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
@@ -110,13 +147,11 @@ const LeadDetail = () => {
         <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1rem' }}>Score Breakdown</h3>
         <div className="grid gap-4" style={{ gridTemplateColumns: '1fr 1fr' }}>
           {lead.score_breakdown ? Object.entries(lead.score_breakdown).map(([key, val], idx) => {
-            const maxVal = 15; // Assume 15 is max for these sub-scores based on data, except engagement is 5... just use percentage of 15 roughly, or display raw.
-            const percentage = Math.min(100, Math.round((val / 15) * 100));
-            const formatKey = key.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+            const percentage = getPercentage(key, val);
             return (
               <div key={idx}>
                 <div className="flex justify-between text-sm mb-1" style={{ fontSize: '0.875rem' }}>
-                  <span>{formatKey}</span>
+                  <span>{formatKey(key)}</span>
                   <span className="text-teal" style={{ fontWeight: 600 }}>{val} pts</span>
                 </div>
                 <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}>

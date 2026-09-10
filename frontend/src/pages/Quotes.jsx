@@ -6,13 +6,21 @@ import toast from 'react-hot-toast';
 
 const Quotes = () => {
   const [quotes, setQuotes] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchQuotes();
   }, []);
 
   const fetchQuotes = () => {
-    getQuotes().then(setQuotes).catch(console.error);
+    setLoading(true);
+    getQuotes().then(data => {
+      setQuotes(data || []);
+      setLoading(false);
+    }).catch(err => {
+      console.error(err);
+      setLoading(false);
+    });
   };
 
   const handleAction = async (actionFn, id, successMsg) => {
@@ -26,10 +34,12 @@ const Quotes = () => {
   };
 
   const getStatusVariant = (status) => {
-    switch(status) {
-      case 'Approved': return 'success';
-      case 'Sent': return 'nurture';
-      case 'Rejected': return 'hot';
+    if (!status) return 'default';
+    switch(status.toLowerCase()) {
+      case 'approved': return 'success';
+      case 'sent': return 'nurture';
+      case 'rejected': return 'hot';
+      case 'draft': return 'warm';
       default: return 'default';
     }
   };
@@ -55,18 +65,26 @@ const Quotes = () => {
               </tr>
             </thead>
             <tbody>
-              {quotes.map(quote => (
+              {loading ? (
+                <tr>
+                  <td colSpan="6" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>Loading...</td>
+                </tr>
+              ) : quotes.length === 0 ? (
+                <tr>
+                  <td colSpan="6" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>No quotes found</td>
+                </tr>
+              ) : quotes.map(quote => (
                 <tr key={quote.id}>
                   <td style={{ fontWeight: 500, color: 'var(--teal-accent)' }}>{quote.id}</td>
-                  <td style={{ fontWeight: 500 }}>{quote.client}</td>
-                  <td style={{ fontSize: '1.125rem', fontWeight: 600 }}>{quote.amount}</td>
-                  <td className="text-muted">{quote.date}</td>
-                  <td><Badge variant={getStatusVariant(quote.status)}>{quote.status}</Badge></td>
+                  <td style={{ fontWeight: 500 }}>{quote.client || quote.lead_name || '-'}</td>
+                  <td style={{ fontSize: '1.125rem', fontWeight: 600 }}>{quote.amount ? `₹${quote.amount.toLocaleString()}` : '-'}</td>
+                  <td className="text-muted">{quote.created_at ? new Date(quote.created_at).toLocaleDateString('en-IN') : '-'}</td>
+                  <td><Badge variant={getStatusVariant(quote.status)}>{quote.status || '-'}</Badge></td>
                   <td>
                     <div className="flex gap-2">
                       <button className="btn btn-ghost" title="View"><FileText size={16} /></button>
-                      {quote.status === 'Draft' && <button className="btn btn-ghost text-teal" title="Send" onClick={() => handleAction(sendQuote, quote.id, 'Quote sent')}><Send size={16} /></button>}
-                      {quote.status === 'Sent' && (
+                      {quote.status?.toLowerCase() === 'draft' && <button className="btn btn-ghost text-teal" title="Send" onClick={() => handleAction(sendQuote, quote.id, 'Quote sent')}><Send size={16} /></button>}
+                      {quote.status?.toLowerCase() === 'sent' && (
                         <>
                           <button className="btn btn-ghost" style={{ color: 'var(--success)' }} title="Approve" onClick={() => handleAction(approveQuote, quote.id, 'Quote approved')}><Check size={16} /></button>
                           <button className="btn btn-ghost" style={{ color: 'var(--danger)' }} title="Reject" onClick={() => handleAction(rejectQuote, quote.id, 'Quote rejected')}><X size={16} /></button>

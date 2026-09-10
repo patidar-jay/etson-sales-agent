@@ -110,6 +110,18 @@ const initializeStore = async () => {
   for (const campaign of campaigns) {
     await memoryStore.collection('campaigns').doc(campaign.id).set(campaign);
   }
+
+  const quotes = [
+    { id: 'Q-2026-001', lead_id: 'l1', client: 'ABC Retail Pvt Ltd', items: [{ product: '80mm POS Thermal Paper', quantity: 5000, unit_price: 15, amount: 75000 }], amount: '₹75,000', status: 'draft', created_at: '2026-09-10T12:00:00Z' },
+    { id: 'Q-2026-002', lead_id: 'l3', client: 'Gujarat Supermart', items: [{ product: '80mm POS Thermal Paper', quantity: 15000, unit_price: 14, amount: 210000 }], amount: '₹2,10,000', status: 'approved', created_at: '2026-09-09T10:00:00Z' },
+    { id: 'Q-2026-003', lead_id: 'l9', client: 'Mehra Billing Solutions', items: [{ product: '80mm POS Thermal Paper', quantity: 7000, unit_price: 15, amount: 105000 }], amount: '₹1,05,000', status: 'sent', created_at: '2026-09-08T14:00:00Z' },
+    { id: 'Q-2026-004', lead_id: 'l5', client: 'North India Logistics', items: [{ product: '80mm Label Thermal Paper', quantity: 12000, unit_price: 20, amount: 240000 }], amount: '₹2,40,000', status: 'draft', created_at: '2026-09-07T16:00:00Z' },
+    { id: 'Q-2026-005', lead_id: 'l11', client: 'FastTrack Couriers', items: [{ product: 'Barcode Labels', quantity: 25000, unit_price: 12, amount: 300000 }], amount: '₹3,00,000', status: 'sent', created_at: '2026-09-06T09:00:00Z' },
+  ];
+
+  for (const quote of quotes) {
+    await memoryStore.collection('quotes').doc(quote.id).set(quote);
+  }
 };
 
 initializeStore();

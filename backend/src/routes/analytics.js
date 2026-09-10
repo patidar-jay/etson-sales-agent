@@ -13,7 +13,7 @@ router.get('/overview', async (req, res) => {
       newLeads: leads.length,
       callsMade: leads.length * 2,
       quotesSent: leads.filter(l => l.status === 'quoted').length,
-      highPriority: leads.filter(l => l.category === 'High').length
+      highPriority: leads.filter(l => l.category === 'hot').length
     };
     
     res.status(200).json(today);
@@ -63,7 +63,7 @@ router.get('/conversion-funnel', async (req, res) => {
     
     const total = leads.length;
     const contacted = leads.filter(l => l.status === 'contacted' || l.status === 'quoted').length;
-    const qualified = leads.filter(l => l.category === 'High').length;
+    const qualified = leads.filter(l => l.category === 'hot').length;
     const quoted = leads.filter(l => l.status === 'quoted').length;
     
     res.status(200).json({ total, contacted, qualified, quoted });

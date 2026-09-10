@@ -119,3 +119,31 @@ body {
 .text-muted { color: var(--text-muted); }
 .text-teal { color: var(--teal-accent); }
 .text-gold { color: var(--gold-highlight); }
+
+/* === Missing Utility Classes === */
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.p-4 { padding: 1rem; }
+.p-8 { padding: 2rem; }
+.pb-4 { padding-bottom: 1rem; }
+.mt-2 { margin-top: 0.5rem; }
+.mt-4 { margin-top: 1rem; }
+.mt-6 { margin-top: 1.5rem; }
+.mx-auto { margin-left: auto; margin-right: auto; }
+.text-red-500 { color: #ef4444; }
+.text-sm { font-size: 0.875rem; }
+.mb-1 { margin-bottom: 0.25rem; }
+.flex-wrap { flex-wrap: wrap; }
+.flex-1 { flex: 1; }
+.items-end { align-items: flex-end; }
+.justify-end { justify-content: flex-end; }
+.justify-center { justify-content: center; }
+.animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+.clickable-row { cursor: pointer; transition: background-color 0.15s; }
+.clickable-row:hover { background-color: rgba(255, 255, 255, 0.03); }
+.badge-danger { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
+.badge-warning { background: rgba(245, 158, 11, 0.15); color: #fcd34d; }
+.badge-info { background: rgba(59, 130, 246, 0.15); color: #93c5fd; }
+.file-upload-zone { border: 2px dashed var(--glass-border); border-radius: 8px; padding: 2rem; text-align: center; background: rgba(0,0,0,0.1); cursor: pointer; transition: border-color 0.2s; }
+.file-upload-zone:hover { border-color: var(--teal-accent); }

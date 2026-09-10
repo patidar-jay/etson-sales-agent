@@ -1,21 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, UploadCloud, Play, Pause, CheckCircle } from 'lucide-react';
+import { Plus, Play, Pause, CheckCircle } from 'lucide-react';
 import Modal from '../components/Modal';
 import Badge from '../components/Badge';
-import { getCampaigns, createCampaign } from '../services/api';
+import { getCampaigns, createCampaign, pauseCampaign, resumeCampaign } from '../services/api';
 import toast from 'react-hot-toast';
 
 const Campaigns = () => {
   const [campaigns, setCampaigns] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const fetchCampaigns = () => {
+    setLoading(true);
     getCampaigns().then(data => {
-      setCampaigns(data);
+      setCampaigns(data || []);
       setLoading(false);
     }).catch(err => {
       console.error(err);
+      setError('Failed to load campaigns');
       setLoading(false);
     });
   };
@@ -27,9 +30,9 @@ const Campaigns = () => {
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
-      const formData = new FormData();
-      formData.append('name', e.target[0].value);
-      await createCampaign(formData);
+      const name = e.target[0].value;
+      const description = e.target[1].value;
+      await createCampaign({ name, description });
       setIsModalOpen(false);
       toast.success('Campaign created and started successfully!');
       fetchCampaigns();
@@ -38,9 +41,32 @@ const Campaigns = () => {
     }
   };
 
+  const handlePause = async (id) => {
+    try {
+      await pauseCampaign(id);
+      toast.success('Campaign paused');
+      fetchCampaigns();
+    } catch (err) {
+      toast.error('Failed to pause campaign');
+    }
+  };
+
+  const handleResume = async (id) => {
+    try {
+      await resumeCampaign(id);
+      toast.success('Campaign resumed');
+      fetchCampaigns();
+    } catch (err) {
+      toast.error('Failed to resume campaign');
+    }
+  };
+
   const getStatusIcon = (status) => {
-    if (status === 'Running') return <Play size={14} />;
-    if (status === 'Paused') return <Pause size={14} />;
+    if (!status) return null;
+    const s = status.toLowerCase();
+    if (s === 'running') return <Play size={14} />;
+    if (s === 'paused') return <Pause size={14} />;
+    if (s === 'completed') return <CheckCircle size={14} />;
     return <CheckCircle size={14} />;
   };
 
@@ -60,9 +86,13 @@ const Campaigns = () => {
         </button>
       </div>
 
+      {error && <div className="p-4 mb-6 bg-red-500/20 text-red-500 rounded-lg text-center">{error}</div>}
+
       <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
         {loading ? (
           <div className="p-8 text-center text-muted">Loading campaigns...</div>
+        ) : campaigns.length === 0 ? (
+          <div className="p-8 text-center text-muted">No campaigns found</div>
         ) : campaigns.map(camp => (
           <div key={camp.id} className="glass-card flex" style={{ flexDirection: 'column' }}>
             <div className="flex justify-between items-start mb-4">
@@ -82,7 +112,7 @@ const Campaigns = () => {
               </div>
             </div>
 
-            <div className="grid gap-2" style={{ gridTemplateColumns: '1fr 1fr 1fr', textAlign: 'center', marginTop: 'auto' }}>
+            <div className="grid gap-2 mb-4" style={{ gridTemplateColumns: '1fr 1fr 1fr', textAlign: 'center' }}>
               <div style={{ background: 'rgba(0,0,0,0.2)', padding: '0.5rem', borderRadius: '8px' }}>
                 <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>{camp.total_contacts || camp.total || 0}</div>
                 <div className="text-muted" style={{ fontSize: '0.75rem' }}>Total</div>
@@ -96,27 +126,36 @@ const Campaigns = () => {
                 <div className="text-muted" style={{ fontSize: '0.75rem', color: '#fca5a5' }}>Hot</div>
               </div>
             </div>
+
+            <div className="flex justify-end gap-2 mt-auto">
+              {camp.status?.toLowerCase() === 'running' && (
+                <button className="btn btn-secondary w-full flex justify-center" onClick={() => handlePause(camp.id)}>
+                  <Pause size={16} /> Pause
+                </button>
+              )}
+              {camp.status?.toLowerCase() === 'paused' && (
+                <button className="btn btn-primary w-full flex justify-center" onClick={() => handleResume(camp.id)}>
+                  <Play size={16} /> Resume
+                </button>
+              )}
+            </div>
           </div>
         ))}
       </div>
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Create New Campaign" maxWidth="600px">
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Create New Campaign" maxWidth="500px">
         <form onSubmit={handleCreate}>
-          <div className="form-group">
+          <div className="form-group mb-4">
             <label className="form-label">Campaign Name</label>
             <input type="text" className="form-input" placeholder="e.g. Diwali Retailers 2026" required />
           </div>
-          <div className="form-group">
-            <label className="form-label">Upload Leads (.xlsx, .csv)</label>
-            <div style={{ border: '2px dashed var(--glass-border)', borderRadius: '8px', padding: '2rem', textAlign: 'center', background: 'rgba(0,0,0,0.1)', cursor: 'pointer' }}>
-              <UploadCloud size={32} className="text-muted mx-auto mb-2" style={{ margin: '0 auto 0.5rem auto' }} />
-              <div style={{ fontWeight: 500 }}>Drag & drop or click to upload</div>
-              <div className="text-muted" style={{ fontSize: '0.75rem', marginTop: '0.25rem' }}>Supports Excel and CSV up to 10MB</div>
-            </div>
+          <div className="form-group mb-6">
+            <label className="form-label">Description (Optional)</label>
+            <textarea className="form-input" rows="3" placeholder="Brief description of the campaign"></textarea>
           </div>
-          <div className="flex justify-end gap-2 mt-6">
+          <div className="flex justify-end gap-2">
             <button type="button" className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>Cancel</button>
-            <button type="submit" className="btn btn-primary">Start Campaign</button>
+            <button type="submit" className="btn btn-primary">Create Campaign</button>
           </div>
         </form>
       </Modal>
