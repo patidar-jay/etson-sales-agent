@@ -7,9 +7,9 @@
   "scripts": {
     "dev": "LOCAL_DEV=true node --watch src/index.js",
     "start": "LOCAL_DEV=true node src/index.js"
-
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.116.0",
     "cors": "^2.8.6",
     "dotenv": "^16.6.1",
     "express": "^4.22.2",

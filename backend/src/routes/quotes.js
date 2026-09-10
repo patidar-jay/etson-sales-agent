@@ -1,5 +1,5 @@
 import express from 'express';
-import { db } from '../config/firebase.js';
+import { supabase } from '../config/supabase.js';
 import { generateQuotePDF } from '../services/quoteGenerator.js';
 import { sendQuoteToProspect } from '../services/email.js';
 
@@ -7,8 +7,9 @@ const router = express.Router();
 
 router.get('/', async (req, res) => {
   try {
-    const quotes = await db.collection('quotes').get();
-    res.status(200).json(quotes.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    const { data: quotes, error } = await supabase.from('quotes').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    res.status(200).json(quotes);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -16,22 +17,27 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const { lead_id, items } = req.body;
+    const { lead_id, items, client, amount } = req.body;
     
-    const leadDoc = await db.collection('leads').doc(lead_id).get();
-    if (!leadDoc.exists) {
-      return res.status(404).json({ error: 'Lead not found' });
+    const { data: lead, error: leadError } = await supabase.from('leads').select('*').eq('id', lead_id).single();
+    if (leadError) {
+       if (leadError.code === 'PGRST116') return res.status(404).json({ error: 'Lead not found' });
+       throw leadError;
     }
 
     const quote = {
       lead_id,
       items,
+      client: client || lead.company || lead.name,
+      amount: amount || '₹0',
       status: 'draft',
       created_at: new Date().toISOString()
     };
 
-    const savedQuote = await db.collection('quotes').doc().set(quote);
-    res.status(201).json({ id: savedQuote.id, ...quote });
+    const { data: savedQuote, error: quoteError } = await supabase.from('quotes').insert([quote]).select().single();
+    if (quoteError) throw quoteError;
+    
+    res.status(201).json(savedQuote);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -39,7 +45,8 @@ router.post('/', async (req, res) => {
 
 router.put('/:id/approve', async (req, res) => {
   try {
-    await db.collection('quotes').doc(req.params.id).update({ status: 'approved' });
+    const { error } = await supabase.from('quotes').update({ status: 'approved' }).eq('id', req.params.id);
+    if (error) throw error;
     res.status(200).json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -48,7 +55,8 @@ router.put('/:id/approve', async (req, res) => {
 
 router.put('/:id/reject', async (req, res) => {
   try {
-    await db.collection('quotes').doc(req.params.id).update({ status: 'rejected' });
+    const { error } = await supabase.from('quotes').update({ status: 'rejected' }).eq('id', req.params.id);
+    if (error) throw error;
     res.status(200).json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -57,14 +65,17 @@ router.put('/:id/reject', async (req, res) => {
 
 router.post('/:id/send', async (req, res) => {
   try {
-    const quoteDoc = await db.collection('quotes').doc(req.params.id).get();
-    if (!quoteDoc.exists) return res.status(404).json({ error: 'Quote not found' });
+    const { data: quoteData, error: quoteError } = await supabase.from('quotes').select('*').eq('id', req.params.id).single();
+    if (quoteError) {
+      if (quoteError.code === 'PGRST116') return res.status(404).json({ error: 'Quote not found' });
+      throw quoteError;
+    }
     
-    const quoteData = quoteDoc.data();
-    const leadDoc = await db.collection('leads').doc(quoteData.lead_id).get();
-    
-    if (!leadDoc.exists) return res.status(404).json({ error: 'Lead not found' });
-    const leadData = leadDoc.data();
+    const { data: leadData, error: leadError } = await supabase.from('leads').select('*').eq('id', quoteData.lead_id).single();
+    if (leadError) {
+      if (leadError.code === 'PGRST116') return res.status(404).json({ error: 'Lead not found' });
+      throw leadError;
+    }
 
     // Generate PDF
     const pdfBase64 = generateQuotePDF(leadData, quoteData);
@@ -72,7 +83,8 @@ router.post('/:id/send', async (req, res) => {
     // Send email
     await sendQuoteToProspect(leadData, pdfBase64);
 
-    await db.collection('quotes').doc(req.params.id).update({ status: 'sent' });
+    const { error: updateError } = await supabase.from('quotes').update({ status: 'sent' }).eq('id', req.params.id);
+    if (updateError) throw updateError;
 
     res.status(200).json({ success: true });
   } catch (error) {

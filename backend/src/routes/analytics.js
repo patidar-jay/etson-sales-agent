@@ -1,12 +1,12 @@
 import express from 'express';
-import { db } from '../config/firebase.js';
+import { supabase } from '../config/supabase.js';
 
 const router = express.Router();
 
 router.get('/overview', async (req, res) => {
   try {
-    const leadsRef = await db.collection('leads').get();
-    const leads = leadsRef.docs.map(doc => doc.data());
+    const { data: leads, error } = await supabase.from('leads').select('*');
+    if (error) throw error;
     
     // Mock today's stats based on total leads for simplicity
     const today = {
@@ -24,8 +24,8 @@ router.get('/overview', async (req, res) => {
 
 router.get('/leads-by-product', async (req, res) => {
   try {
-    const leadsRef = await db.collection('leads').get();
-    const leads = leadsRef.docs.map(doc => doc.data());
+    const { data: leads, error } = await supabase.from('leads').select('needs');
+    if (error) throw error;
     
     const counts = {};
     leads.forEach(l => {
@@ -41,8 +41,8 @@ router.get('/leads-by-product', async (req, res) => {
 
 router.get('/leads-by-city', async (req, res) => {
   try {
-    const leadsRef = await db.collection('leads').get();
-    const leads = leadsRef.docs.map(doc => doc.data());
+    const { data: leads, error } = await supabase.from('leads').select('city');
+    if (error) throw error;
     
     const counts = {};
     leads.forEach(l => {
@@ -58,8 +58,8 @@ router.get('/leads-by-city', async (req, res) => {
 
 router.get('/conversion-funnel', async (req, res) => {
   try {
-    const leadsRef = await db.collection('leads').get();
-    const leads = leadsRef.docs.map(doc => doc.data());
+    const { data: leads, error } = await supabase.from('leads').select('status, category');
+    if (error) throw error;
     
     const total = leads.length;
     const contacted = leads.filter(l => l.status === 'contacted' || l.status === 'quoted').length;

@@ -1,12 +1,13 @@
 import express from 'express';
-import { db } from '../config/firebase.js';
+import { supabase } from '../config/supabase.js';
 
 const router = express.Router();
 
 router.get('/', async (req, res) => {
   try {
-    const productsRef = await db.collection('products').get();
-    res.status(200).json(productsRef.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    const { data: products, error } = await supabase.from('products').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    res.status(200).json(products);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -14,9 +15,12 @@ router.get('/', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   try {
-    const doc = await db.collection('products').doc(req.params.id).get();
-    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
-    res.status(200).json({ id: doc.id, ...doc.data() });
+    const { data: product, error } = await supabase.from('products').select('*').eq('id', req.params.id).single();
+    if (error) {
+      if (error.code === 'PGRST116') return res.status(404).json({ error: 'Not found' });
+      throw error;
+    }
+    res.status(200).json(product);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -24,8 +28,9 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const savedProduct = await db.collection('products').doc().set(req.body);
-    res.status(201).json({ id: savedProduct.id, ...req.body });
+    const { data: savedProduct, error } = await supabase.from('products').insert([req.body]).select().single();
+    if (error) throw error;
+    res.status(201).json(savedProduct);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -33,7 +38,8 @@ router.post('/', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   try {
-    await db.collection('products').doc(req.params.id).update(req.body);
+    const { error } = await supabase.from('products').update(req.body).eq('id', req.params.id);
+    if (error) throw error;
     res.status(200).json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -42,7 +48,8 @@ router.put('/:id', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
   try {
-    await db.collection('products').doc(req.params.id).delete();
+    const { error } = await supabase.from('products').delete().eq('id', req.params.id);
+    if (error) throw error;
     res.status(200).json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
