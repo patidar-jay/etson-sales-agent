@@ -5,8 +5,9 @@
   "main": "src/index.js",
   "type": "module",
   "scripts": {
-    "dev": "LOCAL_DEV=true node --watch src/index.js",
-    "start": "LOCAL_DEV=true node src/index.js"
+    "dev": "node --env-file=.env --watch src/index.js",
+    "start": "node --env-file=.env src/index.js"
+
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",
