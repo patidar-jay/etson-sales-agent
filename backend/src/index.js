@@ -3,6 +3,9 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import multer from 'multer';
 
+// Load .env file if it exists (local dev). On Vercel, env vars are injected automatically.
+dotenv.config();
+
 import webhookRoutes from './routes/webhooks.js';
 import campaignRoutes from './routes/campaigns.js';
 import leadRoutes from './routes/leads.js';
@@ -45,11 +48,12 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message || 'Internal Server Error' });
 });
 
-// Export for Vercel serverless
+// Export for Vercel serverless runtime
 export default app;
 
-// Start server in non-serverless environments
-if (process.env.NODE_ENV !== 'production' || process.env.LOCAL_DEV) {
+// Start server locally (not on Vercel serverless)
+if (process.env.LOCAL_DEV === 'true') {
+  const port = process.env.PORT || 3001;
   app.listen(port, () => {
     console.log(`Server running on port ${port}`);
   });
