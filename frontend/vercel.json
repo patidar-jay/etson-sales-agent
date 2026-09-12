@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://etson-sales-agent-d35ij9q0f-jaypatelpatidarm51-3968s-projects.vercel.app/api/:path*"
+      "destination": "https://etson-sales-agent-p1c9y2nvz-jaypatelpatidarm51-3968s-projects.vercel.app/api/:path*"
     },
     {
       "source": "/(.*)",
