@@ -1,5 +1,5 @@
 import express from 'express';
-import { supabase } from '../config/supabase.js';
+import { localDB as supabase } from '../config/localdb.js';
 import { parseExcel } from '../utils/excelParser.js';
 
 const router = express.Router();

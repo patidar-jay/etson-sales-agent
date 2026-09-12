@@ -33,3 +33,8 @@ Thumbs.db
 frontend/.vite/
 .vercel
 .env*
+
+# Local SQLite database (contains only real Sarvam call data)
+backend/etson-local.db
+backend/etson-local.db-shm
+backend/etson-local.db-wal

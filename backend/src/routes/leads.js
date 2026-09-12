@@ -1,5 +1,5 @@
 import express from 'express';
-import { supabase } from '../config/supabase.js';
+import { localDB as supabase } from '../config/localdb.js';
 import { triggerOutboundCall } from '../services/sarvam.js';
 
 const router = express.Router();

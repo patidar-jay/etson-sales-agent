@@ -1,10 +1,13 @@
 import express from 'express';
-import { supabase } from '../config/supabase.js';
+import { localDB as supabase } from '../config/localdb.js';
+import { settingsHelper } from '../config/localdb.js';
 import { scoreLead } from '../services/scoring.js';
 import { sendHotLeadAlert } from '../services/email.js';
 
 const router = express.Router();
 
+// POST /api/webhooks/sarvam
+// Sarvam AI calls this after every completed call
 router.post('/sarvam', async (req, res) => {
   try {
     const {
@@ -17,51 +20,68 @@ router.post('/sarvam', async (req, res) => {
       status
     } = req.body;
 
-    // Idempotency check: see if we already have this webhook interaction
-    const { data: existing, error: existError } = await supabase.from('settings').select('key').eq('key', `webhook_${interaction_id}`).single();
-    if (existing) {
+    console.log('[Sarvam Webhook] Received call data:', {
+      interaction_id,
+      phone,
+      call_duration,
+      status
+    });
+
+    // Idempotency check: already processed?
+    const existing = await settingsHelper.get(`webhook_${interaction_id}`);
+    if (existing.data) {
       return res.status(200).json({ message: 'Already processed' });
     }
 
-    // Save idempotency key
-    await supabase.from('settings').insert([{ key: `webhook_${interaction_id}`, value: { processed_at: new Date().toISOString() } }]);
+    // Mark as processed
+    await settingsHelper.set(`webhook_${interaction_id}`);
 
-    // Save raw webhook data (optional, but good for debugging)
-    // Could create a separate webhooks table, but here we just process the lead
-
-    // Score lead
+    // Score the lead based on transcript + agent variables
     const scoringResult = scoreLead(req.body);
 
-    // Prepare lead data
+    // Build lead record from Sarvam webhook data
+    const leadId = `sarvam_${interaction_id || Date.now()}`;
     const leadData = {
+      id: leadId,
       phone,
       transcript,
-      ...agent_variables, // Will expand to name, company, city, etc if present
+      // Agent variables sent from Sarvam (name, company, city, etc.)
+      ...(agent_variables || {}),
       call_duration,
       recording_url,
       status: 'new',
-      category: scoringResult.category === 'High' ? 'hot' : (scoringResult.category === 'Medium' ? 'warm' : 'nurture'),
-      score_breakdown: scoringResult.score_breakdown || {},
+      category: scoringResult.category === 'High'
+        ? 'hot'
+        : (scoringResult.category === 'Medium' ? 'warm' : 'nurture'),
+      priority: scoringResult.total || 0,
+      score_breakdown: JSON.stringify(scoringResult.score_breakdown || {}),
       created_at: new Date().toISOString()
     };
-    
-    // We should try to update an existing lead by phone if one exists, otherwise insert
-    const { data: existingLeads } = await supabase.from('leads').select('id').eq('phone', phone).limit(1);
-    
+
+    // Upsert: update existing lead by phone, or insert new
+    const { data: existingLeads } = await supabase
+      .from('leads')
+      .select('id')
+      .eq('phone', phone)
+      .limit(1);
+
     let savedLeadId;
 
     if (existingLeads && existingLeads.length > 0) {
       const existingId = existingLeads[0].id;
-      const { error: updateError } = await supabase.from('leads').update(leadData).eq('id', existingId);
-      if (updateError) throw updateError;
+      await supabase
+        .from('leads')
+        .update(leadData)
+        .eq('id', existingId);
       savedLeadId = existingId;
+      console.log(`[Sarvam Webhook] Updated existing lead: ${existingId}`);
     } else {
-      const { data: savedLead, error: insertError } = await supabase.from('leads').insert([leadData]).select().single();
-      if (insertError) throw insertError;
-      savedLeadId = savedLead.id;
+      await supabase.from('leads').insert([leadData]);
+      savedLeadId = leadId;
+      console.log(`[Sarvam Webhook] Created new lead: ${leadId}`);
     }
 
-    // Hot lead alert
+    // Hot lead email alert
     if (scoringResult.category === 'High') {
       leadData.id = savedLeadId;
       await sendHotLeadAlert(leadData);
@@ -69,7 +89,7 @@ router.post('/sarvam', async (req, res) => {
 
     res.status(200).json({ success: true, leadId: savedLeadId });
   } catch (error) {
-    console.error('Webhook error:', error);
+    console.error('[Sarvam Webhook] Error:', error);
     res.status(500).json({ error: error.message });
   }
 });

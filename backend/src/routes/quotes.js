@@ -1,5 +1,5 @@
 import express from 'express';
-import { supabase } from '../config/supabase.js';
+import { localDB as supabase } from '../config/localdb.js';
 import { generateQuotePDF } from '../services/quoteGenerator.js';
 import { sendQuoteToProspect } from '../services/email.js';
 
