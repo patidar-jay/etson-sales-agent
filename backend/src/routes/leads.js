@@ -1,5 +1,6 @@
 import express from 'express';
 import { supabase } from '../config/supabase.js';
+import { triggerOutboundCall } from '../services/sarvam.js';
 
 const router = express.Router();
 
@@ -45,14 +46,56 @@ router.get('/stats', async (req, res) => {
   }
 });
 
+// Get single lead
 router.get('/:id', async (req, res) => {
   try {
-    const { data: lead, error } = await supabase.from('leads').select('*').eq('id', req.params.id).single();
-    if (error) {
-      if (error.code === 'PGRST116') return res.status(404).json({ error: 'Not found' });
-      throw error;
-    }
-    res.status(200).json(lead);
+    const { data, error } = await supabase
+      .from('leads')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+      
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Lead not found' });
+    
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Trigger Sarvam AI Outbound Call
+router.post('/:id/call', async (req, res) => {
+  try {
+    // 1. Fetch the lead
+    const { data: lead, error } = await supabase
+      .from('leads')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+      
+    if (error) throw error;
+    if (!lead) return res.status(404).json({ error: 'Lead not found' });
+    if (!lead.phone) return res.status(400).json({ error: 'Lead has no phone number' });
+
+    // 2. Prepare dynamic variables (using what we know about the lead)
+    const variables = {
+      name: lead.name || '',
+      company: lead.company || '',
+      category: lead.category || '',
+      source: lead.source || ''
+    };
+
+    // 3. Trigger call via Sarvam API
+    const response = await triggerOutboundCall(lead.phone, variables);
+    
+    // 4. Update lead status locally to show call initiated
+    await supabase
+      .from('leads')
+      .update({ status: 'contacted' })
+      .eq('id', req.params.id);
+
+    res.json({ success: true, sarvam_response: response });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

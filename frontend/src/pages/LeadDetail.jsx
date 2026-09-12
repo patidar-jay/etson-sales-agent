@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getLeadById, updateLead } from '../services/api';
-import { ArrowLeft, Phone, Mail, MapPin, Play, FileText, CheckCircle, XCircle } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, MapPin, Play, FileText, CheckCircle, XCircle, PhoneOutgoing } from 'lucide-react';
 import Badge from '../components/Badge';
 import ScoreDisplay from '../components/ScoreDisplay';
 import toast from 'react-hot-toast';
@@ -12,6 +12,7 @@ const LeadDetail = () => {
   const [lead, setLead] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [calling, setCalling] = useState(false);
 
   useEffect(() => {
     getLeadById(id)
@@ -33,6 +34,28 @@ const LeadDetail = () => {
       setLead({ ...lead, status });
     } catch (err) {
       toast.error('Failed to update lead status');
+    }
+  };
+
+  const handleSarvamCall = async () => {
+    setCalling(true);
+    const loadingToast = toast.loading('Initiating AI call...');
+    try {
+      const response = await fetch(`/api/leads/${id}/call`, {
+        method: 'POST',
+      });
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to trigger call');
+      }
+      
+      toast.success('Call initiated successfully! The AI will contact the lead shortly.', { id: loadingToast });
+      setLead({ ...lead, status: 'contacted' });
+    } catch (err) {
+      toast.error(err.message, { id: loadingToast });
+    } finally {
+      setCalling(false);
     }
   };
 
@@ -113,7 +136,15 @@ const LeadDetail = () => {
           <div className="glass-card">
             <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem' }}>Actions</h3>
             <div className="flex" style={{ flexDirection: 'column', gap: '0.75rem' }}>
-              <button className="btn btn-primary w-full"><FileText size={18} /> Create Quote</button>
+              <button 
+                className="btn btn-primary w-full" 
+                style={{ background: 'var(--teal-accent)' }} 
+                onClick={handleSarvamCall}
+                disabled={calling}
+              >
+                <PhoneOutgoing size={18} /> {calling ? 'Calling...' : 'Call with Sarvam AI'}
+              </button>
+              <button className="btn btn-secondary w-full"><FileText size={18} /> Create Quote</button>
               <button className="btn btn-secondary w-full" style={{ color: 'var(--success)', borderColor: 'var(--success)' }} onClick={() => handleUpdateStatus('won')}><CheckCircle size={18} /> Mark Won</button>
               <button className="btn btn-secondary w-full" style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }} onClick={() => handleUpdateStatus('lost')}><XCircle size={18} /> Mark Lost</button>
             </div>
