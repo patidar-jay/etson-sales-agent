@@ -1,4 +1,5 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+// In production Vercel, /api is proxied. Locally it hits :3001.
+const API_BASE = import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:3001/api' : '/api');
 
 
 const fetchJSON = async (url, options = {}) => {

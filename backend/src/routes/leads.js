@@ -46,6 +46,23 @@ router.get('/stats', async (req, res) => {
   }
 });
 
+// GET /api/leads/call-logs — all leads that came from Sarvam webhook (have transcript)
+router.get('/call-logs', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('leads')
+      .select('id, name, phone, company, category, status, transcript, call_duration, recording_url, score_breakdown, created_at')
+      .not('transcript', 'is', null)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    res.status(200).json(data || []);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
 // Get single lead
 router.get('/:id', async (req, res) => {
   try {
