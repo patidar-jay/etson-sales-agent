@@ -15,7 +15,8 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Campaign name required' });
     }
 
-    const { contacts, errors } = parseExcel(req.file.path);
+    const { contacts, errors } = parseExcel(req.file.buffer || req.file.path);
+
     if (errors.length > 0) {
       return res.status(400).json({ error: 'Invalid excel format', details: errors });
     }

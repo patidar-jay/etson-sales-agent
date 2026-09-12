@@ -1,8 +1,12 @@
 import * as xlsx from 'xlsx';
 
-export const parseExcel = (filePath) => {
+export const parseExcel = (filePathOrBuffer) => {
   try {
-    const workbook = xlsx.readFile(filePath);
+    // Support both file path (local dev) and Buffer (serverless/memory storage)
+    const workbook = typeof filePathOrBuffer === 'string'
+      ? xlsx.readFile(filePathOrBuffer)
+      : xlsx.read(filePathOrBuffer, { type: 'buffer' });
+
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
     const rawData = xlsx.utils.sheet_to_json(sheet);

@@ -31,8 +31,9 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Set up multer for uploads
-const upload = multer({ dest: 'uploads/' });
+// Use memory storage for serverless compatibility (Vercel read-only filesystem)
+const upload = multer({ storage: multer.memoryStorage() });
+
 
 // Mount routes
 app.use('/api/webhooks', webhookRoutes);
