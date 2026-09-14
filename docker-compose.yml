@@ -1,0 +1,96 @@
+services:
+  # ── Whatomate Postgres Database ────────────────────────────────────────────
+  whatomate-db:
+    image: postgres:15-alpine
+    container_name: whatomate-postgres
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=whatomate
+    volumes:
+      - whatomate_pg_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - etson-net
+
+  # ── Whatomate Redis Cache ──────────────────────────────────────────────────
+  whatomate-redis:
+    image: redis:7-alpine
+    container_name: whatomate-redis
+    restart: unless-stopped
+    networks:
+      - etson-net
+
+  # ── Whatomate WhatsApp Gateway ─────────────────────────────────────────────
+  whatomate:
+    image: ghcr.io/shridarpatil/whatomate:latest
+    container_name: etson-whatomate
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - whatomate_data:/app/data
+      - ./config.toml:/app/config.toml
+    depends_on:
+      - whatomate-db
+      - whatomate-redis
+    networks:
+      - etson-net
+
+  # ── Etson Backend ──────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: etson-backend
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    volumes:
+      - backend_data:/app/data
+    environment:
+      - NODE_ENV=production
+      - LOCAL_DEV=true
+      - PORT=3001
+      - DB_PATH=/app/data/etson-local.db
+      - SARVAM_API_KEY=${SARVAM_API_KEY}
+      - SARVAM_AGENT_ID=${SARVAM_AGENT_ID}
+      - SARVAM_ORG_ID=${SARVAM_ORG_ID}
+      - SARVAM_WORKSPACE_ID=${SARVAM_WORKSPACE_ID}
+      - SARVAM_APP_ID=${SARVAM_APP_ID}
+      - WHATOMATE_URL=http://whatomate:8080
+      - WHATOMATE_API_KEY=${WHATOMATE_API_KEY}
+      - SALES_TEAM_WHATSAPP=${SALES_TEAM_WHATSAPP}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - APP_URL=${APP_URL:-https://yourdomain.com}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+    depends_on:
+      - whatomate
+    networks:
+      - etson-net
+
+  # ── Etson Frontend ─────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: etson-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - etson-net
+
+volumes:
+  whatomate_data:
+  whatomate_pg_data:
+  backend_data:
+
+networks:
+  etson-net:
+    driver: bridge

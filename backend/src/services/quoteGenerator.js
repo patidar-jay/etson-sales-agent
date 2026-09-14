@@ -30,9 +30,9 @@ export const generateQuotePDF = (lead, quote) => {
       const total = item.qty * item.price;
       subtotal += total;
       tableData.push([
-        item.description || item.name,
+        item.product || item.description || item.name,
         item.qty,
-        `Rs ${item.price.toFixed(2)}`,
+        `Rs ${Number(item.price || 0).toFixed(2)}`,
         `Rs ${total.toFixed(2)}`
       ]);
     });

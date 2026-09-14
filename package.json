@@ -1,0 +1,13 @@
+{
+  "name": "etson-sales-agent",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "better-sqlite3": "^13.0.3",
+    "http-proxy": "^1.18.1",
+    "playwright": "^1.63.0"
+  },
+  "allowScripts": {
+    "better-sqlite3@13.0.3": true
+  }
+}

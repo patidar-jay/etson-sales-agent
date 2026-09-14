@@ -13,6 +13,7 @@ router.get('/overview', async (req, res) => {
     const newLeadsToday = leads.filter(l => l.created_at?.startsWith(today)).length;
 
     res.status(200).json({
+      totalLeads: leads.length,      // alias used by Dashboard
       newLeads: leads.length,
       newLeadsToday,
       callsMade: leads.filter(l => l.status === 'contacted').length,
@@ -109,6 +110,27 @@ router.get('/daily-trend', async (req, res) => {
     res.status(200).json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/analytics/score-distribution — count leads in score brackets
+router.get('/score-distribution', async (req, res) => {
+  try {
+    const { data: leads, error } = await supabase.from('leads').select('priority');
+    if (error) throw error;
+
+    const brackets = { '0-25': 0, '26-50': 0, '51-75': 0, '76-100': 0 };
+    leads.forEach(l => {
+      const s = Number(l.priority || 0);
+      if      (s <= 25)  brackets['0-25']++;
+      else if (s <= 50)  brackets['26-50']++;
+      else if (s <= 75)  brackets['51-75']++;
+      else               brackets['76-100']++;
+    });
+
+    res.json(Object.entries(brackets).map(([range, count]) => ({ range, count })));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 

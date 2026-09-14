@@ -4,75 +4,119 @@
 # ============================================
 # Usage: ./start.sh
 # Requires: Node.js 18+
+#
+# FIXED SARVAM WEBHOOK URL (set this ONCE — never changes):
+#   https://etson-sarvam.loca.lt/api/webhooks/sarvam
+# ============================================
 
 set -e
 DIR="$(cd "$(dirname "$0")" && pwd)"
 
+SUBDOMAIN="etson-sales-agent-v1"
+FIXED_TUNNEL_URL="https://${SUBDOMAIN}.loca.lt"
+WEBHOOK_URL="${FIXED_TUNNEL_URL}/api/webhooks/sarvam"
+
 echo ""
-echo "🚀 Starting Etson Sales Agent (100% local, real Sarvam data only)"
+echo "🚀 Starting Etson Sales Agent"
 echo "=================================================="
 
-# Start backend on port 3001
+# Kill any existing processes on 3001/5173/3002
+fuser -k 3001/tcp 2>/dev/null || true
+fuser -k 5173/tcp 2>/dev/null || true
+fuser -k 3002/tcp 2>/dev/null || true
+pkill -f "localtunnel" 2>/dev/null || true
+pkill -f "whatomate-proxy" 2>/dev/null || true
+sleep 1
+
+# ── Whatomate Docker (WhatsApp gateway) ──────────────────────────────────
+echo "▶ Starting Whatomate (Docker)..."
+docker compose up -d whatomate-db whatomate-redis whatomate > /dev/null 2>&1 || true
+sleep 2
+echo "  ✅ Whatomate: http://localhost:8080"
+
+# ── Whatomate iframe proxy (strips X-Frame-Options) ──────────────────────
+echo "▶ Starting Whatomate proxy (port 3002)..."
+nohup node "$DIR/whatomate-proxy.js" > /tmp/etson-wa-proxy.log 2>&1 &
+WA_PROXY_PID=$!
+sleep 2
+if curl -s --max-time 3 http://localhost:3002 > /dev/null 2>&1; then
+  echo "  ✅ Whatomate Proxy: http://localhost:3002"
+else
+  echo "  ⚠️  Whatomate proxy starting..."
+fi
+
+# ── Backend ──────────────────────────────────────────────────────────
 echo "▶ Starting backend..."
 cd "$DIR/backend"
-node --env-file=.env src/index.js &
+npm run dev > /tmp/etson-backend.log 2>&1 &
 BACKEND_PID=$!
-sleep 2
+sleep 4
 
-# Verify backend started
-if curl -s http://localhost:3001/api/leads > /dev/null 2>&1; then
+if curl -s http://localhost:3001/health > /dev/null 2>&1; then
   echo "  ✅ Backend: http://localhost:3001"
 else
-  echo "  ❌ Backend failed to start. Check logs."
+  echo "  ❌ Backend failed. Logs:"
+  tail -20 /tmp/etson-backend.log
   kill $BACKEND_PID 2>/dev/null
   exit 1
 fi
 
-# Start frontend on port 5173
+# ── Frontend ─────────────────────────────────────────────────────────
 echo "▶ Starting frontend..."
 cd "$DIR/frontend"
-npm run dev --silent &
+npm run dev > /tmp/etson-frontend.log 2>&1 &
 FRONTEND_PID=$!
-sleep 2
+sleep 3
 echo "  ✅ Frontend: http://localhost:5173"
 
-# Start localtunnel so Sarvam can send webhooks
+# ── Fixed tunnel ──────────────────────────────────────────────────────
 echo ""
-echo "▶ Starting public tunnel for Sarvam webhooks..."
-TUNNEL_URL=""
-npx localtunnel --port 3001 --subdomain etson-sarvam > /tmp/tunnel.log 2>&1 &
+echo "▶ Starting tunnel: ${FIXED_TUNNEL_URL}..."
+npx localtunnel --port 3001 --subdomain "$SUBDOMAIN" > /tmp/etson-tunnel.log 2>&1 &
 TUNNEL_PID=$!
-sleep 3
-TUNNEL_URL=$(grep -o "https://[^ ]*" /tmp/tunnel.log 2>/dev/null | head -1)
+sleep 7
 
-if [ -z "$TUNNEL_URL" ]; then
-  TUNNEL_URL="Run: npx localtunnel --port 3001"
+# Check if localtunnel confirmed our URL (process-based, no external curl needed)
+CONFIRMED_URL=$(grep -o "https://[^ ]*" /tmp/etson-tunnel.log 2>/dev/null | head -1)
+TUNNEL_LIVE=false
+
+if [ -n "$CONFIRMED_URL" ]; then
+  TUNNEL_LIVE=true
 fi
 
 echo ""
 echo "=================================================="
-echo "✅ EVERYTHING IS RUNNING"
+echo "✅ ALL SERVICES RUNNING"
 echo "=================================================="
 echo ""
-echo "  📊 Dashboard:   http://localhost:5173"
-echo "  ⚙️  API:         http://localhost:3001"
-echo "  🌐 Public URL:  $TUNNEL_URL"
+echo "  📊 Dashboard : http://localhost:5173"
+echo "  ⚙️  Backend   : http://localhost:3001"
+
+if [ "$TUNNEL_LIVE" = true ]; then
+  echo "  🌐 Tunnel    : ${CONFIRMED_URL} ✅"
+else
+  echo "  🌐 Tunnel    : ⚠️  Starting... (check /tmp/etson-tunnel.log)"
+fi
+
 echo ""
 echo "=================================================="
-echo "📡 SARVAM AI WEBHOOK SETUP"
+echo "📡 SARVAM WEBHOOK — SET THIS ONCE, NEVER AGAIN"
 echo "=================================================="
 echo ""
-echo "  Paste this URL in your Sarvam AI agent settings:"
+echo "  ✅ Your permanent webhook URL:"
 echo ""
-echo "  ➡️  $TUNNEL_URL/api/webhooks/sarvam"
+echo "     ➡️  ${WEBHOOK_URL}"
 echo ""
-echo "  1. Go to: https://indus.sarvam.ai"
-echo "  2. Click your Sales Discovery agent"
-echo "  3. Settings → Webhook URL"
-echo "  4. Paste the URL above and save"
+echo "  ⚡ This NEVER changes — set it once in Sarvam!"
 echo ""
-echo "  Once configured, every Sarvam call will auto-appear"
-echo "  in your dashboard with full transcript + lead score!"
+echo "  Setup (one time only):"
+echo "  1. Go to https://indus.sarvam.ai"
+echo "  2. Your agent → Tools → log_discovery_outcome → Edit"
+echo "  3. API URL → paste: ${WEBHOOK_URL}"
+echo "  4. Save → Done forever ✅"
+echo ""
+echo "  💡 TIP: If tunnel shows 503, just re-run ./start.sh"
+echo "          (another localtunnel session may have been active)"
 echo ""
 echo "=================================================="
 echo "Press Ctrl+C to stop all services"
@@ -80,9 +124,10 @@ echo ""
 
 cleanup() {
   echo ""
-  echo "Stopping all services..."
-  kill $BACKEND_PID $FRONTEND_PID $TUNNEL_PID 2>/dev/null
-  echo "Done."
+  echo "Stopping services..."
+  kill $BACKEND_PID $FRONTEND_PID $TUNNEL_PID $WA_PROXY_PID 2>/dev/null || true
+  docker compose stop whatomate whatomate-db whatomate-redis > /dev/null 2>&1 || true
+  echo "✅ All stopped."
   exit 0
 }
 

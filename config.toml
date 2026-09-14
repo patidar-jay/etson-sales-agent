@@ -1,0 +1,17 @@
+[server]
+port = 8080
+host = "0.0.0.0"
+
+[database]
+host = "whatomate-postgres"
+port = 5432
+user = "postgres"
+password = "postgres"
+name = "whatomate"
+
+[redis]
+host = "whatomate-redis"
+port = 6379
+
+[auth]
+secret = "etson-whatomate-secret-2026"

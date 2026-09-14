@@ -1,11 +1,14 @@
 import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
+/**
+ * Modal — properly centered, scrollable backdrop so content never clips at top.
+ * Uses portal to escape transform containing blocks.
+ */
 const Modal = ({ isOpen, onClose, title, children, maxWidth = '500px' }) => {
   useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') onClose();
-    };
+    const handleKeyDown = (e) => { if (e.key === 'Escape') onClose(); };
     if (isOpen) {
       document.body.style.overflow = 'hidden';
       document.addEventListener('keydown', handleKeyDown);
@@ -20,32 +23,48 @@ const Modal = ({ isOpen, onClose, title, children, maxWidth = '500px' }) => {
 
   if (!isOpen) return null;
 
-  return (
-    <div 
+  return createPortal(
+    <div
       onClick={onClose}
       style={{
-        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-        background: 'rgba(11, 14, 26, 0.8)', backdropFilter: 'blur(4px)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        zIndex: 50, padding: '1rem'
+        position: 'fixed', inset: 0,
+        backgroundColor: 'rgba(11, 14, 26, 0.85)',
+        zIndex: 1000,
+        overflowY: 'auto',
       }}
     >
-      <div 
-        onClick={(e) => e.stopPropagation()}
-        className="glass-card slide-in" 
-        style={{ width: '100%', maxWidth, padding: '2rem', maxHeight: '90vh', overflowY: 'auto' }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>{title}</h2>
-          <button className="btn btn-ghost" onClick={onClose} style={{ padding: '0.25rem' }}>
-            <X size={20} />
-          </button>
-        </div>
-        <div>
+      <div style={{
+        minHeight: '100%',
+        padding: '2rem 1rem',
+        display: 'flex',
+        flexDirection: 'column',
+      }}>
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="glass-card slide-in"
+          style={{
+            width: '100%', maxWidth,
+            padding: '2rem',
+            position: 'relative',
+            margin: 'auto', // This ensures it centers when smaller than viewport, but grows downwards when taller
+          }}
+        >
+          {/* Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <h2 style={{ fontSize: '1.2rem', fontWeight: 700 }}>{title}</h2>
+            <button
+              className="btn btn-ghost"
+              onClick={onClose}
+              style={{ padding: '0.35rem', borderRadius: '8px', lineHeight: 0 }}
+            >
+              <X size={20} />
+            </button>
+          </div>
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

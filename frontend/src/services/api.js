@@ -1,5 +1,4 @@
-// In production Vercel, /api is proxied. Locally it hits :3001.
-const API_BASE = import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:3001/api' : '/api');
+import { API as API_BASE } from '../config.js';
 
 
 const fetchJSON = async (url, options = {}) => {
@@ -33,6 +32,11 @@ export const createCampaign = (formData) => fetch(`${API_BASE}/campaigns`, {
   method: 'POST', body: formData
 }).then(r => r.json());
 
+export const startCampaign = (id, data) => fetchJSON(`${API_BASE}/campaigns/${id}/start`, {
+  method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data)
+});
+export const getCampaignProgress = (id) => fetchJSON(`${API_BASE}/campaigns/${id}/progress`);
+
 export const pauseCampaign = (id) => fetchJSON(`${API_BASE}/campaigns/${id}/pause`, { method: 'PUT' });
 export const resumeCampaign = (id) => fetchJSON(`${API_BASE}/campaigns/${id}/resume`, { method: 'PUT' });
 
@@ -40,6 +44,9 @@ export const resumeCampaign = (id) => fetchJSON(`${API_BASE}/campaigns/${id}/res
 export const getQuotes = () => fetchJSON(`${API_BASE}/quotes`);
 export const createQuote = (data) => fetchJSON(`${API_BASE}/quotes`, {
   method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data)
+});
+export const updateQuote = (id, data) => fetchJSON(`${API_BASE}/quotes/${id}`, {
+  method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data)
 });
 export const approveQuote = (id) => fetchJSON(`${API_BASE}/quotes/${id}/approve`, { method: 'PUT' });
 export const rejectQuote = (id) => fetchJSON(`${API_BASE}/quotes/${id}/reject`, { method: 'PUT' });
@@ -64,3 +71,10 @@ export const getDailyTrend = () => fetchJSON(`${API_BASE}/analytics/daily-trend`
 
 // Lead Stats
 export const getLeadStats = () => fetchJSON(`${API_BASE}/leads/stats`);
+
+// Call Logs (Sarvam Analytics)
+export const getCallLogs = (params = {}) => fetchJSON(`${API_BASE}/call-logs?${new URLSearchParams(params)}`);
+export const getCallTranscript = (id) => fetchJSON(`${API_BASE}/call-logs/${id}/transcript`);
+export const getCallRecording = (id) => fetchJSON(`${API_BASE}/call-logs/${id}/recording`);
+
+export const getRecentMessages = (limit=5) => fetchJSON(`${API_BASE}/whatsapp/recent?limit=${limit}`);
