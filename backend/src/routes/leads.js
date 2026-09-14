@@ -128,11 +128,18 @@ router.post('/:id/call', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   try {
-    const { status, notes, assigned_to } = req.body;
+    const allowed = ['status', 'notes', 'assigned_to', 'name', 'company', 'phone',
+                     'email', 'city', 'budget', 'timeline', 'category',
+                     'product', 'volume', 'supplier_pain', 'decision_maker',
+                     'current_supplier', 'application', 'width', 'diameter',
+                     'core_size', 'consent_source'];
     const updateData = {};
-    if (status !== undefined) updateData.status = status;
-    if (notes !== undefined) updateData.notes = notes;
-    if (assigned_to !== undefined) updateData.assigned_to = assigned_to;
+    for (const field of allowed) {
+      if (req.body[field] !== undefined) updateData[field] = req.body[field];
+    }
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ error: 'No valid fields to update' });
+    }
 
     const { error } = await supabase.from('leads').update(updateData).eq('id', req.params.id);
     if (error) throw error;
@@ -153,6 +160,54 @@ router.patch('/:id/followup', async (req, res) => {
     if (error) throw error;
     res.json({ success: true, followup_enabled: val });
   } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/leads/:id/audio — proxy Sarvam recording (requires API key auth)
+router.get('/:id/audio', async (req, res) => {
+  try {
+    const { data: lead, error } = await supabase
+      .from('leads')
+      .select('recording_url, name')
+      .eq('id', req.params.id)
+      .single();
+
+    if (error) throw error;
+    if (!lead) return res.status(404).json({ error: 'Lead not found' });
+    
+    const recUrl = lead.recording_url;
+    if (!recUrl || recUrl === 'null' || recUrl === 'undefined') {
+      return res.status(404).json({ error: 'No recording available for this lead' });
+    }
+
+    const apiKey = process.env.SARVAM_API_KEY || '';
+    
+    // Fetch audio from Sarvam with API key
+    const response = await fetch(recUrl, {
+      headers: {
+        'X-API-Key': apiKey,
+        'Accept': 'audio/*,*/*',
+      },
+      redirect: 'follow',
+    });
+
+    if (!response.ok) {
+      return res.status(response.status).json({ error: `Sarvam audio fetch failed: ${response.status}` });
+    }
+
+    const contentType = response.headers.get('content-type') || 'audio/wav';
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    res.setHeader('Accept-Ranges', 'bytes');
+    
+    // Stream the audio
+    const { Readable } = await import('stream');
+    const nodeReadable = Readable.fromWeb(response.body);
+    nodeReadable.pipe(res);
+    
+  } catch (e) {
+    console.error('[Audio Proxy] Error:', e.message);
     res.status(500).json({ error: e.message });
   }
 });

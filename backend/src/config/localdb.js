@@ -155,6 +155,24 @@ safeAddColumn('quotes', 'phone', 'TEXT');
 safeAddColumn('quotes', 'notes', 'TEXT');
 safeAddColumn('whatsapp_messages', 'wm_message_id', 'TEXT');
 
+// ── One-time cleanup: fix null IDs and string 'null' recording_urls ──────────
+try {
+  // Fix leads with null id — generate a unique id
+  const nullIdLeads = db.prepare(`SELECT rowid FROM leads WHERE id IS NULL OR id = 'null'`).all();
+  for (const row of nullIdLeads) {
+    const newId = `csv_${Date.now()}_${row.rowid}`;
+    db.prepare(`UPDATE leads SET id = ? WHERE rowid = ?`).run(newId, row.rowid);
+  }
+  if (nullIdLeads.length > 0) console.log(`[DB] Fixed ${nullIdLeads.length} leads with null IDs`);
+
+  // Fix recording_url = string 'null'
+  const fixedRec = db.prepare(`UPDATE leads SET recording_url = NULL WHERE recording_url = 'null' OR recording_url = 'undefined' OR recording_url = ''`).run();
+  if (fixedRec.changes > 0) console.log(`[DB] Fixed ${fixedRec.changes} leads with invalid recording_url strings`);
+
+} catch (e) {
+  console.warn('[DB] Cleanup warning:', e.message);
+}
+
 // Adapter: mimics Supabase client API so routes need minimal changes
 export const localDB = {
   from: (table) => new TableQuery(db, table)

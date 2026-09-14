@@ -84,7 +84,7 @@ const LeadDetail = () => {
     setCalling(true);
     const loadingToast = toast.loading('Initiating AI call...');
     try {
-      const response = await fetch(`/api/leads/${id}/call`, {
+      const response = await fetch(`${API}/leads/${id}/call`, {
         method: 'POST',
       });
       const data = await response.json();
@@ -192,20 +192,49 @@ const LeadDetail = () => {
           </div>
 
           <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1rem' }}>Product Requirements & Details</h3>
-          <div className="grid gap-4" style={{ gridTemplateColumns: '1fr 1fr', background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '12px' }}>
-            <div><span className="text-muted">Product:</span> <div style={{ fontWeight: 500 }}>{lead.product || lead.needs || 'N/A'}</div></div>
-            <div><span className="text-muted">Monthly Volume:</span> <div style={{ fontWeight: 500 }}>{lead.volume ? lead.volume.toLocaleString() + ' rolls' : 'N/A'}</div></div>
-            <div><span className="text-muted">Core Size:</span> <div style={{ fontWeight: 500 }}>{lead.core_size || 'N/A'}</div></div>
-            <div><span className="text-muted">Application:</span> <div style={{ fontWeight: 500 }}>{lead.application || 'N/A'}</div></div>
-            <div><span className="text-muted">Budget Target:</span> <div style={{ fontWeight: 500 }}>{editing ? <input className="form-input" value={editForm.budget} onChange={e => setEditForm(p => ({...p, budget: e.target.value}))} /> : (lead.budget || 'N/A')}</div></div>
-            <div><span className="text-muted">Timeline:</span> <div style={{ fontWeight: 500 }}>{editing ? <input className="form-input" value={editForm.timeline} onChange={e => setEditForm(p => ({...p, timeline: e.target.value}))} /> : (lead.timeline || 'N/A')}</div></div>
-            <div><span className="text-muted">Current Supplier:</span> <div style={{ fontWeight: 500 }}>{lead.current_supplier || 'N/A'}</div></div>
-            <div><span className="text-muted">Supplier Pain:</span> <div style={{ fontWeight: 500 }}>{lead.supplier_pain || 'N/A'}</div></div>
-            <div><span className="text-muted">Decision Maker:</span> <div style={{ fontWeight: 500 }}>{lead.decision_maker || 'N/A'}</div></div>
-            <div><span className="text-muted">Width:</span> <div style={{ fontWeight: 500 }}>{lead.width || 'N/A'}</div></div>
-            <div><span className="text-muted">Diameter:</span> <div style={{ fontWeight: 500 }}>{lead.diameter || 'N/A'}</div></div>
-            <div><span className="text-muted">Consent Source:</span> <div style={{ fontWeight: 500 }}>{lead.consent_source || 'N/A'}</div></div>
-          </div>
+          {/* Build list of fields that actually have data */}
+          {(() => {
+            const fields = [
+              { label: 'Product', value: lead.product || lead.needs },
+              { label: 'Monthly Volume', value: lead.volume ? String(lead.volume).toLocaleString() + ' units' : null },
+              { label: 'Core Size', value: lead.core_size },
+              { label: 'Application', value: lead.application },
+              { label: 'Budget Target', value: lead.budget, editable: 'budget' },
+              { label: 'Timeline', value: lead.timeline, editable: 'timeline' },
+              { label: 'Current Supplier', value: lead.current_supplier },
+              { label: 'Supplier Pain', value: lead.supplier_pain },
+              { label: 'Decision Maker', value: lead.decision_maker },
+              { label: 'Width', value: lead.width },
+              { label: 'Diameter', value: lead.diameter },
+              { label: 'Consent Source', value: lead.consent_source },
+            ];
+            const visible = editing ? fields : fields.filter(f => f.value);
+            if (visible.length === 0) return (
+              <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '12px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                📋 Product requirements will be captured during the AI discovery call
+              </div>
+            );
+            return (
+              <div className="grid gap-4" style={{ gridTemplateColumns: '1fr 1fr', background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '12px' }}>
+                {visible.map(f => (
+                  <div key={f.label}>
+                    <span className="text-muted">{f.label}:</span>
+                    <div style={{ fontWeight: 500 }}>
+                      {editing && f.editable ? (
+                        <input
+                          className="form-input"
+                          value={editForm[f.editable] || ''}
+                          onChange={e => setEditForm(p => ({...p, [f.editable]: e.target.value}))}
+                        />
+                      ) : (
+                        f.value || '—'
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </div>
 
         <div className="flex" style={{ flexDirection: 'column', gap: '1.5rem' }}>
@@ -286,11 +315,13 @@ const LeadDetail = () => {
           <div className="glass-card">
             <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem' }}>Last Call Analysis</h3>
             <div style={{ marginBottom: '1rem' }}>
-              {lead.recording_url ? (
+              {lead.recording_url && lead.recording_url !== 'null' ? (
                 <audio
                   controls
                   style={{ width: '100%', borderRadius: '8px', marginBottom: '0.5rem', background: 'transparent' }}
-                  src={lead.recording_url}
+                  src={`${API}/leads/${id}/audio`}
+                  preload="metadata"
+                  onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling && (e.target.nextSibling.style.display = 'block'); }}
                 />
               ) : (
                 <div style={{ background: 'rgba(0,0,0,0.2)', padding: '0.75rem', borderRadius: '8px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
@@ -335,23 +366,11 @@ const LeadDetail = () => {
                 </div>
               </div>
             );
-          }) : [
-            { label: 'Intent to Buy', value: 95 },
-            { label: 'Budget Fit', value: 80 },
-            { label: 'Authority', value: 100 },
-            { label: 'Timeline', value: 90 },
-            { label: 'Technical Fit', value: 100 }
-          ].map((item, idx) => (
-            <div key={idx}>
-              <div className="flex justify-between text-sm mb-1" style={{ fontSize: '0.875rem' }}>
-                <span>{item.label}</span>
-                <span className="text-teal" style={{ fontWeight: 600 }}>{item.value}/100</span>
-              </div>
-              <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}>
-                <div style={{ width: `${item.value}%`, height: '100%', background: 'linear-gradient(90deg, var(--teal-accent), var(--gold-highlight))', borderRadius: '4px' }}></div>
-              </div>
+          }) : (
+            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+              📊 Score breakdown will appear after the first AI call
             </div>
-          ))}
+          )}
         </div>
       </div>
     </div>
